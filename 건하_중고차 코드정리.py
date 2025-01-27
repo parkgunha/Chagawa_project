@@ -1,8 +1,6 @@
 # 전체 순서: 1. 데이터 읽기 / 2. 데이터셋 준비하기 / 3. 데이터셋 분할하기
 
-
 # 1. 데이터 읽기
-
 
 # warning 제거
 import warnings
@@ -74,6 +72,18 @@ print(full2_data['model'].unique()[:20])
 # year 범위 설정: 2014 이상 2020년 이하
 full2_data = full2_data[(full2_data['year'] >= 2014) &(full2_data['year'] <= 2020)]
 
+# IQR 기준으로 year 이상치 탐지
+Q1 = full2_data["year"].quantile(0.25)
+Q3 = full2_data["year"].quantile(0.75)
+IQR = Q3 - Q1
+
+lower_bound = Q1 - 1.5 * IQR
+upper_bound = Q3 + 1.5 * IQR
+
+outliers = full2_data[(full2_data["year"] < lower_bound) | (full2_data["year"] > upper_bound)]
+print(outliers)
+
+
 # year boxplot 그려보기
 plt.boxplot(full2_data['year'])
 plt.show()
@@ -136,3 +146,4 @@ incoding_df['model'] = LE.fit_transform(incoding_df['model'])
 # 명목형 'model', 'transmission', 'fuelType', 'carMake'
 incoding_df = pd.get_dummies(incoding_df, columns = ['transmission', 'fuelType', 'carMake'])
 incoding_df.head()
+
