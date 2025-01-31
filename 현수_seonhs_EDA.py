@@ -83,8 +83,8 @@ plt.show()
 # 라벨 인코딩 => 빈도 인코딩
 from sklearn.preprocessing import LabelEncoder
 LE = LabelEncoder()
-incoding_df=df.copy()
-incoding_df['model'] = LE.fit_transform(incoding_df['model'])
+encoding_df=df.copy()
+encoding_df['model'] = LE.fit_transform(encoding_df['model'])
 
 # 원 핫 인코딩이후 커럼이 많아지기 때문에 데이터 분할이 어려워짐.
 # 따라서 데이터 분할 후 원 핫 인코딩
