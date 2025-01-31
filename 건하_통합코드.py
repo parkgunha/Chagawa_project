@@ -1,12 +1,26 @@
 """
 <Python 문서 전체 설명>
-1. 전체 순서: 1. 데이터 읽기 / 2. 데이터셋 준비하기 / 3. 데이터셋 분할하기
+1. 전체 순서
+    1. 필요 라이브러리, 데이터 불러오기
+    2. EDA 및 데이터 시각화
+    3. 이상치 처리
+    4. 데이터 인코딩
+    5. 데이터 분할
+    6. 데이터 스케일링
+    7. 모델 학습 및 평가
+        7-1. 선형회귀
+        7-2. 랜덤 포레스트
+        7-3. XGBoost
+        7-4. ?
+    8. 결과 비교
+    9. 결과 해석
+    10. 모델 저장 및 로딩
 2. #: 코드 설명, ##: 대제목, ###: 소제목
     ##과 ###은 마크다운 셀에서 실행, 일반 셀과 구분하기 위해 ***으로 감싸줌
 3. 수정하기 쉽도록 문단 간의 띄어쓰기는 최종 파이썬 파일을 정리할 때 할 예정
     파이썬 파일은 코드를 전체적으로 볼 때만 사용
 """
-## ***1. 데이터 읽기***
+## ***1. 필요 라이브러리 및 데이터 불러오기***
 # warning 제거
 import warnings
 warnings.filterwarnings('ignore')
@@ -48,7 +62,8 @@ print("데이터의 첫 5행 미리보기:")
 print(full_data.head())
 # full_data 내보내기
 # full_data.to_csv('full_data.csv', index=False) # 파일 실행마다 파일 생성을 방지하기 위해 주석 처리
-## ***2. full_data 데이터셋 준비하기: 전처리***
+## ***2. EDA 및 데이터 시각화***
+### ***EDA를 위한 값 수정 및 채우기***
 # 전처리를 위한 복사본 만들기
 full_data2 = full_data.copy(deep=True)
 
@@ -57,11 +72,11 @@ str_list = ['model', 'transmission', 'fuelType', 'carMake'] # 명목변수
 for i in str_list:
     full_data2[i] = full_data2[i].str.strip()
 print(full_data2['model'].unique()[:20])
-# tax열 결측값 제거: tax 와 tax(£) 컬럼 합치기
+# tax열 결측치 채우기: tax 와 tax(£) 컬럼 합치기
 full_data2['tax'].fillna(full_data2['tax(£)'], inplace=True)
 full_data2.drop(columns='tax(£)', inplace=True)
 full_data2.isna().sum()
-### ***이상치 제거***
+## ***3. 이상치 처리***
 # 모델 별 이상치 확인 
 unique_model = full_data['model'].unique()
 count_nums=0
@@ -107,7 +122,7 @@ print(outliers)
 plt.boxplot(full_data['year'])
 plt.show()
 full_data['year'].describe()
-### ***인코딩***
+## ***4. 데이터 인코딩***
 # 명목변수 = ['model', 'transmission', 'fuelType', 'carMake']
 # 라벨 인코딩 (추후에 빈도 인코딩으로 변경 가능)
 from sklearn.preprocessing import LabelEncoder
@@ -121,3 +136,14 @@ incoding_df.head()
 full_data_numeric = full_data[['year', 'mileage', 'tax', 'mpg', 'engineSize']]
 sns.heatmap(data=full_data_numeric.corr(numeric_only=True), annot=True, cmap='coolwarm')
 plt.show()
+
+## ***5. 데이터 분할***
+## ***6. 데이터 스케일링***
+## ***7. 모델 학습 및 평가***
+## ***7-1. 선형회귀***
+## ***7-2. 랜덤 포레스트***
+## ***7-3. XGBoost***
+## ***7-4. ?***
+## ***8. 결과 비교***
+## ***9. 결과 해석***
+## ***10. 모델 저장 및 로딩***
