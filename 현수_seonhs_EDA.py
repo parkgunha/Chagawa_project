@@ -85,7 +85,27 @@ from sklearn.preprocessing import LabelEncoder
 LE = LabelEncoder()
 incoding_df=df.copy()
 incoding_df['model'] = LE.fit_transform(incoding_df['model'])
+
+# 원 핫 인코딩이후 커럼이 많아지기 때문에 데이터 분할이 어려워짐.
+# 따라서 데이터 분할 후 원 핫 인코딩
+# 데이터 분할
+from sklearn.model_selection import train_test_split
+X = encoding_df.drop(columns='price')
+y = encoding_df[['price']]
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.30, random_state=42)
+
 # 원 핫 인코딩
 # 명목형 'model', 'transmission', 'fuelType', 'carMake'
-incoding_df = pd.get_dummies(incoding_df, columns = ['transmission', 'fuelType', 'carMake'])
-incoding_df.head()
+str_list = ['transmission', 'fuelType', 'carMake']
+for i in str_list:
+  ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+  # fit_transform은 train에만 사용하고 test에는 학습된 인코더에 fit만 해야한다
+  train_transmission = ohe.fit_transform(X_train[[i]]) # numpy.array
+  train_transmission_df = pd.DataFrame(train_transmission, columns=[i + col for col in ohe.categories_[0]])
+  X_train = pd.concat([X_train.reset_index(drop=True), train_transmission_df], axis=1)
+  del X_train[i]
+  # 학습된 인코더에 test를 fit 합니다.
+  X_test_transmission = ohe.transform(X_test[[i]])
+  X_test_transmission_df = pd.DataFrame(X_test_transmission, columns=[i + col for col in ohe.categories_[0]])
+  X_test = pd.concat([X_test.reset_index(drop=True), X_test_transmission_df], axis=1)
+  del X_test[i]
