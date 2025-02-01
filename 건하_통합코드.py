@@ -20,14 +20,10 @@
 3. 수정하기 쉽도록 문단 간의 띄어쓰기는 최종 파이썬 파일을 정리할 때 할 예정
     파이썬 파일은 코드를 전체적으로 볼 때만 사용
 """
-## ***7-1. 선형회귀***
-## ***7-2. 랜덤 포레스트***
-## ***7-3. XGBoost***
-## ***7-4. LightGBM***
 ## ***8. 결과 비교***
 ## ***9. 결과 해석***
 ## ***10. 모델 저장 및 로딩***
-## ***1. 필요 라이브러리 및 데이터 불러오기***
+## ***1. 데이터셋 준비하기***
 # warning 제거
 import warnings
 warnings.filterwarnings('ignore')
@@ -67,9 +63,11 @@ else:
 # 데이터프레임 확인
 print("데이터의 첫 5행 미리보기:")
 print(full_data.head())
-# full_data 내보내기
+print(full_data.shape)
+# 데이터셋 원본파일(full_data) 내보내기
 # full_data.to_csv('full_data.csv', index=False) # 파일 실행마다 파일 생성을 방지하기 위해 주석 처리
-## ***2. EDA 및 데이터 시각화***
+## ***2. 데이터셋 EDA***
+### ***EDA를 위한 최소한의 전처리***
 # 전처리를 위한 복사본 만들기
 full2_data = full_data.copy(deep=True)
 
@@ -86,7 +84,22 @@ full2_data.isna().sum()
 full2_data_numeric = full2_data[['year', 'mileage', 'tax', 'mpg', 'engineSize']]
 sns.heatmap(data=full2_data_numeric.corr(numeric_only=True), annot=True, cmap='coolwarm')
 plt.show()
-## ***3. 이상치 처리***
+## ***3. 데이터셋 분할하기***
+# 데이터 분할
+from sklearn.model_selection import train_test_split
+
+X = full2_data.drop(columns='price')
+y = full2_data['price']
+
+X_train, X_test, y_train, y_test = train_test_split(
+                                    X, y, test_size=0.3, random_state=42)
+
+print(X_train.shape, X_test.shape)
+print(y_train.shape, y_test.shape)
+
+
+## ***4. 데이터 전처리***
+### ***이상치 제거***
 # 모델 별 이상치 확인: 너무 길어서 주석 처리
 #unique_model = full2_data['model'].unique()
 #count_nums=0
@@ -131,14 +144,16 @@ print(full2_data.shape)
 cond1 = (full2_data['year'] == 2060)
 full2_data = full2_data[~cond1]
 print(full2_data.shape)
-## ***4. 데이터 인코딩***
+full2_data.reset_index(drop=True, inplace=True) # 행과 함께 중간의 index 1개가 삭제됨. index를 초기화
+full2_data
+### ***인코딩***
 # 인코딩 전 컬럼 확인
 print(full2_data.select_dtypes(exclude=[int, float]).columns) # 수치형 자료가 아닌 열 4개
 full2_data.head(3)
 # 명목형 변수 별 고유값 개수 확인: 값 많으면 라벨, 적으면 원 핫 인코딩(모델의 학습 속도 고려)
 print(full2_data[['model', 'transmission', 'fuelType', 'carMake']].nunique())
 # 명목형 변수의 고유값 별 개수 확인1
-vc = full2_data['model'].value_counts()
+#vc = full2_data['model'].value_counts()
 
 # 모델의 정확도 향상을 위해 고유값 1개인 데이터 삭제 고려: train / test 데이터 간의 차이가 발생함
 #print(f'{vc[vc == 1]} \n\n개수가 1인 모델의 수: {len(vc[vc == 1])}') 
@@ -155,59 +170,31 @@ print(full2_data['carMake'].value_counts())
 # 명목변수 = ['model', 'transmission', 'fuelType', 'carMake']
 # 'model' 라벨 인코딩 (추후에 빈도 인코딩으로 변경 가능)
 from sklearn.preprocessing import LabelEncoder
-LE = LabelEncoder()
-encoding_df=full2_data.copy()
-encoding_df['model'] = LE.fit_transform(encoding_df['model'])
-encoding_df['model'].head(3)
-# 데이터 분할
-from sklearn.model_selection import train_test_split
-X = encoding_df.drop(columns='price')
-y = encoding_df[['price']]
-X_train, X_test, y_train, y_test = train_test_split(
-                                    X, y, test_size=0.30, random_state=42)
-# model 외 3개 명목형 변수 원 핫 인코딩
+le = LabelEncoder()
+model_encoded = le.fit_transform(full2_data['model'])
+full2_data['model_encoded'] = model_encoded
+full2_data.drop(columns='model', inplace=True)
+print(full2_data.shape)
+full2_data.head()
+# model 외 3개 명목형 변수 원 핫 인코딩: 18개 인코딩 열 생성, 기존 명목형 열 3개 제외 -> 15개 추가 열 생성
 from sklearn.preprocessing import OneHotEncoder
 
 str_list = ['transmission', 'fuelType', 'carMake']
 
 for i in str_list:
-  ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
-  # fit_transform은 train에만 사용하고 test에는 학습된 인코더에 fit만 해야한다
-  train_transmission = ohe.fit_transform(X_train[[i]]) # numpy.array
-  train_transmission_df = pd.DataFrame(train_transmission, columns=[i + col for col in ohe.categories_[0]])
-  X_train = pd.concat([X_train.reset_index(drop=True), train_transmission_df], axis=1)
-  del X_train[i]
-  # 학습된 인코더에 test를 fit 합니다.
-  X_test_transmission = ohe.transform(X_test[[i]])
-  X_test_transmission_df = pd.DataFrame(X_test_transmission, columns=[i + col for col in ohe.categories_[0]])
-  X_test = pd.concat([X_test.reset_index(drop=True), X_test_transmission_df], axis=1)
-  del X_test[i]
+    ohe = OneHotEncoder(sparse_output=False, handle_unknown='ignore')
+    values = ohe.fit_transform(full2_data[[i]])
+    columns = i + '_' + ohe.categories_[0] # 원래컬럼명 + '_' + 리스트에서 넘파이 배열[0]: 3개 합치기
+    df = pd.DataFrame(data=values, columns=columns)
+    full2_data = pd.concat([full2_data, df], axis=1)
+    full2_data.drop(columns=i, inplace=True)
 
-X_train
+print(full2_data.shape)
+print(full2_data.columns)
+full2_data
 
-## ***5. 데이터 분할***
-## ***6. 데이터 스케일링***
-## ***7. 모델 학습 및 평가***
-# 전처리 된, 파일 불러오기
-full_2_data = pd.read_csv('full_2_data.csv')
-full_2_data.head()
-# 명목변수 = ['model', 'transmission', 'fuelType', 'carMake']
-# 라벨 인코딩 (추후에 빈도 인코딩으로 변경 가능)
-from sklearn.preprocessing import LabelEncoder
-LE = LabelEncoder()
-full_2_data['model'] = LE.fit_transform(full_2_data['model'])
-# 원 핫 인코딩
-encoding_df = pd.get_dummies(full_2_data)
-print(len(encoding_df.columns))
-encoding_df
-# 데이터셋 준비(X,y)
-X = encoding_df.drop(columns='price')
-y = encoding_df['price']
-# 데이터셋 분할
-from sklearn.model_selection import train_test_split
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-print(X_train.shape, X_test.shape)
-print(y_train.shape, y_test.shape)
+## ***5. 학습 데이터를 이용한 모델 학습***
+### ***랜덤 포레스트 회귀 모델***
 # 랜덤 포레스트 회귀 모델 학습
 from sklearn.ensemble import RandomForestRegressor
 
@@ -225,3 +212,5 @@ MAPE_train = mean_absolute_percentage_error(y_train, y_pred_train) * 100
 MAPE_test = mean_absolute_percentage_error(y_test, y_pred_test) * 100
 print(MAPE_train)
 print(MAPE_test)
+## ***6. 학습 데이터와 검증 데이터를 이용한 하이퍼 파라미터 튜닝***
+## ***7. 테스트 데이터셋에 대한 최종 성능 측정과 평가***
