@@ -243,3 +243,66 @@ Rfr_Log_robust = model_evaluation(trans_y_test, trans_y_test_pred, result_name="
 result_df = pd.concat([Rfr_base, Rfr_Log_sd, Rfr_Log_robust], axis=1)
 result_df
 """
+
+import optuna
+import numpy as np
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.datasets import fetch_california_housing
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.metrics import mean_squared_error
+
+# 하이퍼 파라미터 조정 
+# 데이터 로드
+df = full2_data.copy()
+lable_list = ['model']
+onhot_list = ['transmission', 'fuelType', 'carMake']
+encoding_df = Encoding(df,lable_list,onhot_list)
+X = encoding_df.drop(columns='price')
+y = encoding_df['price']
+
+# 데이터 분할
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 데이터 스케일링
+normalize_columns = ["year", "mileage", "tax", "mpg"] # 표준 정규화할 변수 리스트
+log_y_train, log_y_test = Log_Trans(y_train, y_test)
+
+# 목적 함수 정의
+def objective(trial):
+    # 하이퍼파라미터 범위 설정
+    n_estimators = trial.suggest_int("n_estimators", 50, 300) # 생성할 트리수
+    max_depth = trial.suggest_int("max_depth", 3, 20) # 최대 트리 깊이
+    min_samples_split = trial.suggest_int("min_samples_split", 2, 20) # 노드 분할 최소 샘플 수
+    min_samples_leaf = trial.suggest_int("min_samples_leaf", 1, 20) # 리프의 최소 샘풀 수
+
+    # 모델 생성
+    model = RandomForestRegressor(
+        n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_split=min_samples_split,
+        min_samples_leaf=min_samples_leaf,
+        random_state=42,
+        n_jobs=-1
+    )
+
+    # 교차 검증을 통한 평가
+    score = cross_val_score(model, X_train, y_train, cv=5, scoring="neg_mean_squared_error", n_jobs=-1)
+    # MSE가 낮을수록 좋은데 이를 높을 수록 좋은 의미로 변경하기 위해 음수변환을 함.
+    return np.mean(score)
+
+# Optuna 최적화 수행
+study = optuna.create_study(direction="maximize")  # score 높을 수록 좋은 방향으로 모델로 최적화
+study.optimize(objective, n_trials=50, n_jobs=-1) # n_trials는 Optuna가 하이퍼파라미터를 탐색하는 총 시도 횟수
+
+# 최적 하이퍼파라미터 출력
+print("Best hyperparameters:", study.best_params)
+
+# 최적 모델 학습 및 평가
+best_params = study.best_params
+best_model = RandomForestRegressor(**best_params, random_state=42, n_jobs=-1)
+best_model.fit(X_train, y_train)
+
+y_pred = best_model.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+print("Test MSE:", mse)
+# 'n_estimators': 117, 'max_depth': 19, 'min_samples_split': 4, 'min_samples_leaf': 2
